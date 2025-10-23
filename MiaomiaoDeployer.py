@@ -83,6 +83,7 @@ class AppInstaller(QMainWindow):
         self.setWindowTitle("妙妙部署小工具 v6.1 (完整版)")
         self.resize(800, 600)
         self.worker = None
+        self.is_dirty = False  # <--- 1. 在这里添加“脏”状态旗标
         self._build_ui()
         self.load_config_and_populate_tree() # 这个调用现在会找到对应的方法
 
@@ -113,6 +114,7 @@ class AppInstaller(QMainWindow):
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self.open_context_menu)
         self.tree.itemDoubleClicked.connect(self.edit_item)
+        self.tree.itemChanged.connect(self._mark_as_dirty)
         layout.addWidget(self.tree)
 
         self.log = QTextEdit(readOnly=True)
@@ -127,11 +129,9 @@ class AppInstaller(QMainWindow):
         layout.addWidget(self.run_btn)
         self.setStatusBar(QStatusBar())
 
-# 在 AppInstaller 类中，找到 run_tasks 方法并替换它
-
-# 在 AppInstaller 类中，找到 run_tasks 方法并完整替换为以下内容
-
-# 在 AppInstaller 类中，找到 run_tasks 方法并完整替换为以下内容
+    def _mark_as_dirty(self, item, column):
+        """一个专门的槽函数，用于将配置标记为已修改"""
+        self.is_dirty = True
 
     def run_tasks(self):
         selected_tasks = []
@@ -212,6 +212,8 @@ class AppInstaller(QMainWindow):
         self.worker.start()
 
     def load_config_and_populate_tree(self):
+        self.tree.blockSignals(True)  # 在加载数据前，暂时“屏蔽”所有信号
+
         self.tree.clear()
         try:
             if not os.path.exists(CONFIG_FILE_PATH):
@@ -222,6 +224,10 @@ class AppInstaller(QMainWindow):
                 with open(CONFIG_FILE_PATH, "r", encoding="utf-8-sig") as f:
                     config = json.load(f)
             for group_name, tasks in config.items():
+
+                if group_name == "_comment":
+                    continue  # 如果键名是 "_comment"，就跳过这次循环
+        
                 g_item = QTreeWidgetItem(self.tree, [group_name])
                 g_item.setData(0, Qt.ItemDataRole.UserRole, {"is_group": True, "name": group_name})
                 g_item.setFlags(g_item.flags() | Qt.ItemFlag.ItemIsAutoTristate | Qt.ItemFlag.ItemIsUserCheckable)
@@ -234,8 +240,16 @@ class AppInstaller(QMainWindow):
                     self.update_tree_item_display(t_item, task_data)
             self.tree.expandAll()
             self.statusBar().showMessage("配置加载成功。", 3000)
+
+            self.tree.blockSignals(False) # 加载完成后，恢复信号
+            self.is_dirty = False         # 确保初始状态是干净的
+
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载配置文件失败: {e}")
+        finally:
+        # 无论成功失败，都恢复信号并重置状态
+            self.tree.blockSignals(False)
+            self.is_dirty = False
 
     def update_tree_item_display(self, item, data):
         item.setText(0, data.get("name", "未命名"))
@@ -251,6 +265,7 @@ class AppInstaller(QMainWindow):
         g_item.setFlags(g_item.flags() | Qt.ItemFlag.ItemIsAutoTristate | Qt.ItemFlag.ItemIsUserCheckable)
         self.tree.setCurrentItem(g_item)
         self.tree.editItem(g_item, 0)
+        self.is_dirty = True  # <--- 4b. 添加后标记为 dirty
 
     def add_task(self):
         selected_item = self.tree.currentItem()
@@ -265,12 +280,14 @@ class AppInstaller(QMainWindow):
         parent_item.setExpanded(True)
         self.tree.setCurrentItem(t_item)
         self.tree.editItem(t_item, 0)
+        self.is_dirty = True  # <--- 4c. 添加后标记为 dirty
 
     def remove_item(self):
         item = self.tree.currentItem()
         if not item: return
         if QMessageBox.question(self, "确认删除", f"确定删除 '{item.text(0)}' 吗？") == QMessageBox.StandardButton.Yes:
             (item.parent() or self.tree.invisibleRootItem()).removeChild(item)
+            self.is_dirty = True  # <--- 4d. 删除后标记为 dirty
 
     def edit_item(self, item, column):
         data = item.data(0, Qt.ItemDataRole.UserRole)
@@ -284,6 +301,7 @@ class AppInstaller(QMainWindow):
             item.setData(0, Qt.ItemDataRole.UserRole, updated_data)
             self.update_tree_item_display(item, updated_data)
             self.statusBar().showMessage(f"任务 '{updated_data['name']}' 已更新。", 3000)
+            self.is_dirty = True  # <--- 4a. 修改后标记为 dirty
 
     def open_context_menu(self, pos):
         menu, item = QMenu(self), self.tree.itemAt(pos)
@@ -354,6 +372,7 @@ class AppInstaller(QMainWindow):
             
             # 在状态栏给出成功反馈
             self.statusBar().showMessage(f"配置已成功保存到: {config_path}", 5000) # 显示5秒
+            self.is_dirty = False  # <--- 2. 保存成功后，重置旗标
 
         except Exception as e:
             # 如果写入失败，弹出错误提示
@@ -361,37 +380,75 @@ class AppInstaller(QMainWindow):
 
             
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, '退出程序', "是否在退出前保存对配置的修改？",
-                                     QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel)
-        if reply == QMessageBox.StandardButton.Save: self.save_config(); event.accept()
-        elif reply == QMessageBox.StandardButton.Discard: event.accept()
-        else: event.ignore()
+        # --- 3. 只在配置被修改过 (is_dirty == True) 的情况下才弹窗 ---
+        if self.is_dirty:
+            reply = QMessageBox.question(self, '退出程序', "检测到配置已修改，是否在退出前保存？",
+                                        QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel)
+            if reply == QMessageBox.StandardButton.Save:
+                self.save_config()
+                # 如果保存后 is_dirty 没变回 False (例如保存失败), 就不退出
+                if self.is_dirty:
+                    event.ignore()
+                else:
+                    event.accept()
+            elif reply == QMessageBox.StandardButton.Discard:
+                event.accept()
+            else: # Cancel
+                event.ignore()
+        else:
+            # 如果没有未保存的修改，就直接接受退出事件，不弹窗
+            event.accept()
 
 
 # 任务编辑器对话框也需要相应更新
 class TaskEditorDialog(QDialog):
-     def __init__(self, task_data, parent=None):
+    def __init__(self, task_data, parent=None):
         super().__init__(parent)
-        self.task_data = copy.deepcopy(task_data)
+        self.task_data = copy.deepcopy(task_data) # 使用深拷贝，避免意外修改
         self.setWindowTitle("编辑任务属性")
+        self.setMinimumWidth(400) # 给对话框一个最小宽度
+        
         self.layout = QFormLayout(self)
 
+        # --- 控件创建 (和您原来的一样) ---
         self.name_edit = QLineEdit(self.task_data.get("name", ""))
         self.type_combo = QComboBox()
-        self.type_combo.addItems(["winget", "web"]) # 简化类型，因为local已无意义
+        self.type_combo.addItems(["winget", "web"])
         self.type_combo.setCurrentText(self.task_data.get("type", "winget"))
         self.id_edit = QLineEdit(self.task_data.get("id", ""))
         self.url_edit = QLineEdit(self.task_data.get("url", ""))
         self.custom_args_edit = QLineEdit(self.task_data.get("custom_args", ""))
-        self.custom_args_edit.setPlaceholderText("例如: --scope machine 或 --location D:\\MyApps") #【重要】参数示例更新
+        self.custom_args_edit.setPlaceholderText("例如: --scope machine 或 --location D:\\MyApps")
         self.notes_edit = QTextEdit(self.task_data.get("notes", ""))
+        self.notes_edit.setFixedHeight(60) # 限制一下说明框的高度
 
+        # --- 布局 (和您原来的一样) ---
         self.layout.addRow("名称:", self.name_edit)
         self.layout.addRow("类型:", self.type_combo)
         self.layout.addRow("Package ID (winget):", self.id_edit)
         self.layout.addRow("URL (web):", self.url_edit)
         self.layout.addRow("自定义参数 (winget):", self.custom_args_edit)
         self.layout.addRow("说明:", self.notes_edit)
+
+        # --- 【第1步：添加 OK 和 Cancel 按钮】---
+        self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.layout.addRow(self.button_box)
+
+        # --- 【第3步：连接按钮信号】---
+        self.button_box.accepted.connect(self.accept) # 点击OK，触发accept()
+        self.button_box.rejected.connect(self.reject) # 点击Cancel，触发reject()
+
+    # --- 【第2步：创建“打包”新数据的方法】---
+    def get_updated_data(self):
+        """从所有输入框收集最新的数据，并返回一个新字典。"""
+        self.task_data["name"] = self.name_edit.text()
+        self.task_data["type"] = self.type_combo.currentText()
+        self.task_data["id"] = self.id_edit.text()
+        self.task_data["url"] = self.url_edit.text()
+        self.task_data["custom_args"] = self.custom_args_edit.text()
+        self.task_data["notes"] = self.notes_edit.toPlainText()
+        # "checked" 状态不是在这个对话框里编辑的，所以保持原样
+        return self.task_data
 
 # ------------------------------
 # 入口函数 (确保这部分代码存在且完整)
