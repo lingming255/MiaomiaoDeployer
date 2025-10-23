@@ -1,0 +1,54 @@
+﻿{
+    "核心开发与设计套件": [
+        {
+            "checked": false,
+            "custom_args": "--scope machine",
+            "id": "Microsoft.VisualStudioCode",
+            "is_group": false,
+            "name": "Visual Studio Code",
+            "notes": "代码编辑器。",
+            "type": "winget"
+        },
+        {
+            "checked": false,
+            "custom_args": "",
+            "id": "Git.Git",
+            "is_group": false,
+            "name": "Git",
+            "notes": "版本控制系统。",
+            "type": "winget"
+        }
+    ],
+    "常用工具与浏览器": [
+        {
+            "checked": true,
+            "custom_args": "--silent",
+            "id": "Google.Chrome",
+            "is_group": false,
+            "name": "Google Chrome",
+            "notes": "网页浏览器。",
+            "type": "winget"
+        },
+        {
+            "checked": false,
+            "custom_args": "",
+            "id": "Tencent.WeChat",
+            "is_group": false,
+            "name": "微信",
+            "notes": "社交软件。",
+            "type": "winget"
+        }
+    ],
+    "需要手动操作的任务": [
+        {
+            "checked": false,
+            "custom_args": "",
+            "id": "",
+            "is_group": false,
+            "name": "NVIDIA 显卡驱动 (GFE)",
+            "notes": "将为您打开驱动下载页面，建议手动安装。",
+            "type": "web",
+            "url": "https://www.nvidia.cn/geforce/geforce-experience/download/"
+        }
+    ]
+}
