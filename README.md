@@ -1,5 +1,5 @@
 # 妙妙部署小工具 (Miaomiao Deployer)
-
+[English Version](README.en.md)
 ## 面向刚拿到新电脑，或者重装系统的用户，是一个通过图形化界面批量装指定软件的工具，不需要任何教程，开箱即用
 
 
