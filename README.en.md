@@ -19,7 +19,7 @@ Based on Python and PyQt6, this tool generates and executes PowerShell scripts t
 
 ## 🚀 Getting Started
 
-1.  Go to the **[Releases](https.github.com/lingming255/MiaomiaoDeployer/releases)** page.
+1.  Go to the **[Releases](https://github.com/lingming255/MiaomiaoDeployer/releases)** page.
 2.  Download the latest `.zip` archive (e.g., `MiaomiaoDeployer-v1.0.0.zip`).
 3.  Unzip the downloaded file.
 4.  Double-click `MiaomiaoDeployer.exe` to run the application.
