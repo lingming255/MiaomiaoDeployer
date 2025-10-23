@@ -20,7 +20,7 @@
 
 ## 🚀 如何使用
 
-1.  前往 [Releases 页面](https://github.com/待定/待定/releases)。
+1.  前往 [Releases 页面](https://github.com/lingming255/MiaomiaoDeployer/releases)。
 2.  下载最新的 `MiaomiaoDeployer.zip` 文件。
 3.  解压后，双击运行 `MiaomiaoDeployer.exe` 即可。
 
